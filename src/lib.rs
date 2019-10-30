@@ -25,7 +25,7 @@ where
     /// the senders pointing to all the registered subscribers
     senders: Arc<RwLock<Slab<S>>>,
     /// factory function to create a new instance of the underlying channel
-    ctor: Box<dyn Fn() -> (S, R) + Send + Sync>,
+    ctor: Arc<dyn Fn() -> (S, R) + Send + Sync>,
 }
 
 /// A receiver of data from a [`FutureBus`](self::FutureBus). When it is dropped, the sender is
@@ -40,6 +40,8 @@ where
     inner_receiver: R,
     sender_registry: Weak<RwLock<Slab<S>>>,
     sender_key: usize,
+    /// factory function to create a new instance of the underlying channel
+    ctor: Arc<dyn Fn() -> (S, R) + Send + Sync>,
 }
 
 impl<T, S, R> Stream for BusSubscriber<T, S, R>
@@ -56,15 +58,37 @@ where
 }
 
 impl<T, S, R> Drop for BusSubscriber<T, S, R>
-where
-    T: Send + Clone + 'static,
-    S: Sink<T> + Unpin,
-    R: Stream<Item = T> + Unpin,
+    where
+        T: Send + Clone + 'static,
+        S: Sink<T> + Unpin,
+        R: Stream<Item = T> + Unpin,
 {
     fn drop(&mut self) {
         if let Some(senders) = self.sender_registry.upgrade() {
             senders.write().remove(self.sender_key);
         }
+    }
+}
+
+impl<T, S, R> BusSubscriber<T, S, R>
+where
+    T: Send + Clone + 'static,
+    S: Sink<T> + Unpin,
+    R: Stream<Item = T> + Unpin,
+{
+    /// Attempts to create a new subscriber. Returns `None` if the underlying bus has
+    /// since been dropped.
+    pub fn try_clone(&self) -> Option<Self> {
+        self.sender_registry.upgrade().and_then(|senders| {
+            let (sender, receiver) = self.ctor.as_ref()();
+            let key = senders.write().insert(sender);
+            Some(BusSubscriber {
+                inner_receiver: receiver,
+                sender_registry: self.sender_registry.clone(),
+                sender_key: key,
+                ctor: self.ctor.clone()
+            })
+        })
     }
 }
 
@@ -82,6 +106,7 @@ where
             inner_receiver: receiver,
             sender_registry: Arc::downgrade(&self.senders),
             sender_key: key,
+            ctor: self.ctor.clone()
         }
     }
 }
@@ -92,7 +117,7 @@ pub fn bounded<T: Send + Clone + 'static>(
 ) -> FutureBus<T, mpsc::Sender<T>, mpsc::Receiver<T>> {
     FutureBus {
         senders: Arc::new(RwLock::new(Slab::new())),
-        ctor: Box::new(move || mpsc::channel::<T>(buffer)),
+        ctor: Arc::new(move || mpsc::channel::<T>(buffer)),
     }
 }
 
@@ -101,7 +126,7 @@ pub fn unbounded<T: Send + Clone + 'static>(
 ) -> FutureBus<T, mpsc::UnboundedSender<T>, mpsc::UnboundedReceiver<T>> {
     FutureBus {
         senders: Arc::new(RwLock::new(Slab::new())),
-        ctor: Box::new(mpsc::unbounded::<T>),
+        ctor: Arc::new(mpsc::unbounded::<T>),
     }
 }
 
@@ -185,7 +210,7 @@ mod tests {
     fn test_subscribe() {
         let mut bus = unbounded();
         let mut r1 = bus.subscribe();
-        let mut r2 = bus.subscribe();
+        let mut r2 = r1.try_clone().unwrap();
         block_on(bus.send(10)).unwrap();
         assert_eq!(block_on(r1.next()), Some(10));
         assert_eq!(block_on(r2.next()), Some(10));
