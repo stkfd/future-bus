@@ -1,0 +1,27 @@
+[package]
+name = "future-bus"
+description = "Futures based SPMC channel (bus)"
+version = "0.1.0"
+authors = ["Stefan Kaufhold <cere@fastmail.fm>"]
+edition = "2018"
+keywords = ["futures", "broadcast", "channel", "spmc", "bus"]
+readme = "README.md"
+categories = ["asynchronous", "concurrency"]
+license = "Apache-2.0"
+
+[features]
+default = ["default-channels"]
+default-channels = ["futures-channel-preview"]
+
+[dependencies]
+futures-core-preview = "0.3.0-alpha.19"
+futures-sink-preview = "0.3.0-alpha.19"
+futures-channel-preview = { version = "0.3.0-alpha.19", features = ["sink"], optional = true }
+slab = "0.4.2"
+parking_lot = "0.9.0"
+
+[dev-dependencies]
+futures-preview = "0.3.0-alpha.19"
+
+[lib]
+name = "future_bus"
