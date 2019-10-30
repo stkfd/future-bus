@@ -128,12 +128,21 @@ where
     }
 
     fn start_send(self: Pin<&mut Self>, item: T) -> Result<(), Self::Error> {
-        Pin::into_inner(self)
+        let mut senders = Pin::into_inner(self)
             .senders
-            .write()
-            .iter_mut()
-            .map(|(_, sender)| Pin::new(sender).start_send(item.clone()))
-            .collect::<Result<_, _>>()
+            .write();
+
+        senders.iter_mut()
+            .skip(1)
+            .map(|(_, sender)| {
+                Pin::new(sender).start_send(item.clone())
+            })
+            .collect::<Result<_, _>>()?;
+
+        if let Some((_, first)) = senders.iter_mut().next() {
+            Pin::new(first).start_send(item)?;
+        }
+        Ok(())
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
