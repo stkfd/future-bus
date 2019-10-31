@@ -7,6 +7,7 @@ edition = "2018"
 keywords = ["futures", "broadcast", "channel", "spmc", "bus"]
 readme = "README.md"
 categories = ["asynchronous", "concurrency"]
+repository = "https://github.com/cere42/future-bus"
 license = "Apache-2.0"
 
 [features]
