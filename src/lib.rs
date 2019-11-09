@@ -9,7 +9,7 @@ use std::sync::{Arc, Weak};
 
 use futures_channel::mpsc;
 use futures_core::task::Context;
-use futures_core::{Poll, Stream};
+use futures_core::{Poll, Stream, FusedStream};
 use futures_sink::Sink;
 use parking_lot::RwLock;
 use slab::Slab;
@@ -54,6 +54,20 @@ where
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Pin::new(&mut Pin::into_inner(self).inner_receiver).poll_next(cx)
+    }
+}
+
+impl<T, S, R> FusedStream for BusSubscriber<T, S, R>
+where
+    T: Send + Clone + 'static,
+    S: Sink<T> + Unpin,
+    R: Stream<Item = T> + Unpin,
+{
+    fn is_terminated(&self) -> bool {
+        // NOTE: Future optimization possible, once
+        // https://github.com/rust-lang/rust/issues/57977 has landed, e.g.
+        // self.sender_registry.strong_count() == 0
+        self.sender_registry.upgrade().is_none()
     }
 }
 
@@ -228,5 +242,17 @@ mod tests {
         }
         block_on(bus.send(15)).unwrap();
         assert_eq!(block_on(r1.next()), Some(15));
+    }
+
+    #[test]
+    fn test_bus_subscriber_fused_stream() {
+        use futures_core::FusedStream;
+        let r1 = {
+            let mut bus = unbounded::<i32>();
+            let r1 = bus.subscribe();
+            assert_eq!(r1.is_terminated(), false);
+            r1
+        };
+        assert_eq!(r1.is_terminated(), true);
     }
 }
