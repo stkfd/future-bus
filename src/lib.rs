@@ -9,7 +9,7 @@ use std::sync::{Arc, Weak};
 
 use futures_channel::mpsc;
 use futures_core::task::{Context, Poll};
-use futures_core::{FusedStream, Stream};
+use futures_core::{Stream, FusedStream};
 use futures_sink::Sink;
 use parking_lot::RwLock;
 use slab::Slab;
