@@ -2,14 +2,20 @@
 //! The bus can internally use any channel/receiver combination. By default it provides constructor
 //! methods to use the `futures::channel::mpsc` channels.
 
-#![deny(missing_docs, unused_must_use, unused_mut, unused_imports, unused_import_braces)]
+#![deny(
+    missing_docs,
+    unused_must_use,
+    unused_mut,
+    unused_imports,
+    unused_import_braces
+)]
 
 use std::pin::Pin;
 use std::sync::{Arc, Weak};
 
 use futures_channel::mpsc;
 use futures_core::task::{Context, Poll};
-use futures_core::{Stream, FusedStream};
+use futures_core::{FusedStream, Stream};
 use futures_sink::Sink;
 use parking_lot::RwLock;
 use slab::Slab;
@@ -72,10 +78,10 @@ where
 }
 
 impl<T, S, R> Drop for BusSubscriber<T, S, R>
-    where
-        T: Send + Clone + 'static,
-        S: Sink<T> + Unpin,
-        R: Stream<Item = T> + Unpin,
+where
+    T: Send + Clone + 'static,
+    S: Sink<T> + Unpin,
+    R: Stream<Item = T> + Unpin,
 {
     fn drop(&mut self) {
         if let Some(senders) = self.sender_registry.upgrade() {
@@ -100,7 +106,7 @@ where
                 inner_receiver: receiver,
                 sender_registry: self.sender_registry.clone(),
                 sender_key: key,
-                ctor: self.ctor.clone()
+                ctor: self.ctor.clone(),
             })
         })
     }
@@ -120,7 +126,7 @@ where
             inner_receiver: receiver,
             sender_registry: Arc::downgrade(&self.senders),
             sender_key: key,
-            ctor: self.ctor.clone()
+            ctor: self.ctor.clone(),
         }
     }
 }
@@ -167,15 +173,12 @@ where
     }
 
     fn start_send(self: Pin<&mut Self>, item: T) -> Result<(), Self::Error> {
-        let mut senders = Pin::into_inner(self)
-            .senders
-            .write();
+        let mut senders = Pin::into_inner(self).senders.write();
 
-        senders.iter_mut()
+        senders
+            .iter_mut()
             .skip(1)
-            .map(|(_, sender)| {
-                Pin::new(sender).start_send(item.clone())
-            })
+            .map(|(_, sender)| Pin::new(sender).start_send(item.clone()))
             .collect::<Result<_, _>>()?;
 
         if let Some((_, first)) = senders.iter_mut().next() {
