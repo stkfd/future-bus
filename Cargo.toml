@@ -12,17 +12,17 @@ license = "Apache-2.0"
 
 [features]
 default = ["default-channels"]
-default-channels = ["futures-channel-preview"]
+default-channels = ["futures-channel"]
 
 [dependencies]
-futures-core-preview = "0.3.0-alpha.19"
-futures-sink-preview = "0.3.0-alpha.19"
-futures-channel-preview = { version = "0.3.0-alpha.19", features = ["sink"], optional = true }
+futures-core = "0.3"
+futures-sink = "0.3"
+futures-channel = { version = "0.3", features = ["sink"], optional = true }
 slab = "0.4.2"
 parking_lot = "0.9.0"
 
 [dev-dependencies]
-futures-preview = "0.3.0-alpha.19"
+futures = "0.3"
 
 [lib]
 name = "future_bus"
