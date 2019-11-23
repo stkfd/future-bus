@@ -131,19 +131,25 @@ where
     }
 }
 
+/// Bounded [`FutureBus`](self::FutureBus), created with [`bounded`](self::bounded)
+pub type BoundedFutureBus<T> = FutureBus<T, mpsc::Sender<T>, mpsc::Receiver<T>>;
+
 /// Create a new bus using bounded channels
 pub fn bounded<T: Send + Clone + 'static>(
     buffer: usize,
-) -> FutureBus<T, mpsc::Sender<T>, mpsc::Receiver<T>> {
+) -> BoundedFutureBus<T> {
     FutureBus {
         senders: Arc::new(RwLock::new(Slab::new())),
         ctor: Arc::new(move || mpsc::channel::<T>(buffer)),
     }
 }
 
+/// Unbounded [`FutureBus`](self::FutureBus), created with [`unbounded`](self::unbounded)
+pub type UnboundedFutureBus<T> = FutureBus<T, mpsc::UnboundedSender<T>, mpsc::UnboundedReceiver<T>>;
+
 /// Create a new bus using unbounded channels
 pub fn unbounded<T: Send + Clone + 'static>(
-) -> FutureBus<T, mpsc::UnboundedSender<T>, mpsc::UnboundedReceiver<T>> {
+) -> UnboundedFutureBus<T> {
     FutureBus {
         senders: Arc::new(RwLock::new(Slab::new())),
         ctor: Arc::new(mpsc::unbounded::<T>),
